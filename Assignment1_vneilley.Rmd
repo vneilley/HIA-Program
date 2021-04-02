@@ -1,0 +1,227 @@
+---
+title: "Assignment 1 - HIA 218"
+author: "vneilley@"
+date: "3/15/2021"
+output: html_document
+---
+
+## Pre-Work
+
+**Install Pre-Requsites if needed**
+if(!require(rmarkdown)) install.packages("rmarkdown") 
+if(!require(ISLR)) install.packages("ISLR")
+if(!require(class)) install.packages("class")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(caret)) install.packages("caret")
+if(!require(ggplot)) install.packages("ggplot2")
+if(!require(sqldf)) install.packages("sqldf")
+
+
+### Import Data
+
+```{r}
+library(readr)
+R_assignment_1_hcv_data <- read_csv("new- hcv data.csv")
+View(R_assignment_1_hcv_data)
+hcv_data <- R_assignment_1_hcv_data
+hcv_manipulated <- R_assignment_1_hcv_data
+```
+
+## Question 1
+
+**Age:** One outlier, left in
+
+```{r}
+boxplot(hcv_manipulated$Age,
+        ylab = "Age")
+```
+
+**ALB:** Outliers above 70 deleted
+
+```{r}
+boxplot(hcv_manipulated$ALB,
+        ylab = "ALB")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$ALB>70,]
+```
+
+**ALP:** Outliers above 300 deleted
+
+```{r}
+boxplot(hcv_manipulated$ALP,
+        ylab = "ALP")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$ALP>300,]
+```
+
+**ALT:** Outliers above 150 deleted
+
+```{r}
+boxplot(hcv_manipulated$ALT,
+        ylab = "ALT")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$ALT>150,]
+```
+
+**AST:** Outliers above 520 deleted
+
+```{r}
+boxplot(hcv_manipulated$AST,
+        ylab = "AST")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$AST>250,]
+```
+
+**BIL:** Outliers above 150 deleted - there were significant amounts of outliers, and could not remove all or would significantly limit the dataset
+
+```{r}
+boxplot(hcv_manipulated$BIL,
+        ylab = "BIL")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$BIL>150,]
+```
+
+**CHEL** No data removed \
+**CHOL:** No data removed
+
+```{r}
+boxplot(hcv_manipulated$CHE,
+        ylab = "CHE")
+
+boxplot(hcv_manipulated$CHOL,
+        ylab = "CHOL")
+```
+
+**CREA:** Outliers above 300 deleted
+
+```{r}
+boxplot(hcv_manipulated$CREA,
+        ylab = "CREA")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$CREA>300,]
+```
+
+**GGT:** Outliers above 300 deleted
+
+```{r}
+boxplot(hcv_manipulated$GGT,
+        ylab = "GGT")
+
+hcv_manipulated <- hcv_manipulated[!hcv_manipulated$GGT>300,]
+```
+
+**PROT:** No data removed
+
+```{r}
+boxplot(hcv_manipulated$PROT,
+        ylab = "PROT")
+```
+
+## Question 2
+
+```{r}
+hcv_manipulated <- na.omit(hcv_manipulated)
+table(hcv_manipulated$final_category)
+```
+
+After removing some outliers, there are 42 positive data points, thus needing 65 negative individuals for a 40/60 split 
+
+```{r}
+library(sqldf)
+negative <- sqldf('SELECT * FROM hcv_manipulated WHERE final_category = 1')
+positive <- sqldf('SELECT * FROM hcv_manipulated WHERE final_category = 2')
+```
+
+### Randomize negative sample
+
+```{r}
+library(dplyr)
+negative <- sample_n(negative, 65)
+```
+
+Combine the positive (42 obs) and negative (65 obs) datasets to get total with 107 observations with a 60/40 split of negative/postive
+
+```{r}
+total <- rbind(positive, negative)
+total <- na.omit(total)
+```
+
+### Split 70/30 for training
+
+```{r}
+train_data <- total %>% mutate(ref=seq_len(nrow(total))) %>% sample_frac(0.7)
+test_data <- total[-train_data$ref,]
+```
+
+### Manipulate and normalize train_data
+
+```{r}
+train_data <- train_data[-1]
+train_data <- train_data[-1]
+train_data <- train_data[-3]
+train_data <- train_data[-14]
+str(train_data)
+```
+
+```{r}
+normal_train <- train_data %>% mutate_at(1:13, funs((.-min(.))/max(.-min(.))))
+```
+
+### Manipulate and normalize test_data
+
+```{r}
+test_data <- test_data[-1]
+test_data <- test_data[-1]
+test_data <- test_data[-3]
+str(test_data)
+```
+
+```{r}
+normal_test <- test_data %>% mutate_at(1:13, funs((.-min(.))/max(.-min(.))))
+```
+
+### Split training data
+
+Extract 1st column of train dataset because it will be used for prediction.
+
+```{r}
+label_train = normal_train$final_category
+normal_train <- normal_train[-1]
+```
+
+Find the number of observations. 
+```{r}
+NROW(label_train)
+```
+Since 75, the square of 75 is 8.7 so k = 9
+
+### Split testing data
+
+Extract 1st column of train dataset because it will be used for prediction.
+
+```{r}
+label_test = normal_test$final_category
+normal_test <- normal_test[-1]
+```
+
+## Question 3
+
+### Train KNN 
+
+```{r}
+library(class)
+knn9 <- knn(train=normal_train, test=normal_test, cl=label_train, k=9)
+```
+
+### Test KNN
+
+```{r}
+ACC9 <- 100 * sum(label_test == knn9)/NROW(label_test)
+table(knn9 ,label_test)
+```
+
+```{r}
+caret::confusionMatrix(table(knn9 ,label_test))
+```
+
+Accuracy of 78.12% is reasonable for a model with a small dataset. Low specificity may suggest a poor mdoel as it will wrongfully tag negative individuals as positive, thus, causing potentially negative mental side effects. 

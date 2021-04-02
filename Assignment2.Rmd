@@ -1,0 +1,122 @@
+---
+title: "assignment2"
+author: "vneilley"
+date: "3/29/2021"
+output: html_document
+---
+
+```
+if(!require(rmarkdown)) install.packages("rmarkdown") 
+if(!require(ISLR)) install.packages("ISLR")
+if(!require(class)) install.packages("class")
+if(!require(dplyr)) install.packages("dplyr")
+if(!require(caret)) install.packages("caret")
+if(!require(ggplot)) install.packages("ggplot2")
+if(!require(sqldf)) install.packages("sqldf")
+if(!require(tidyverse)) install.packages ("tidyverse")
+if(!require(devtools)) install.packages ("devtools")
+if(!require(rpart)) install.packages ("rpart")
+if(!require(mlbench)) install.packages ("mlbench")
+if(!require(rpart.plot)) install.packages ("rpart.plot")
+if(!require(SuperLearner)) install.packages ("SuperLearner")
+if(!require(ranger)) install.packages ("ranger")
+library(ranger)
+library(SuperLearner)
+library(rpart)
+library(mlbench)
+library(skimr)
+library(readr)
+library(dplyr)
+library(tree)
+library(rpart.plot)
+```
+
+### Import Data
+
+```
+R_assignment_2_data <- read_csv("./HIA218-2/218-2.csv")
+View(R_assignment_2_data)
+diabetes_data <- R_assignment_2_data
+diabetes_manipulated <- R_assignment_2_data
+```
+
+## Question 1 
+
+### Do we need to do extra data preprocessing?
+
+```
+skim(diabetes_data)
+```
+
+Yes everything is characters, change to 0 and 1
+
+```
+diabetes_manipulated <- diabetes_data %>%
+      mutate(Gender = ifelse(Gender == "Male",0,1),
+             Polyuria = ifelse(Polyuria == "No" ,0,1),
+             Polydipsia = ifelse(Polydipsia == "No" ,0,1),
+             `sudden weight loss` = ifelse(`sudden weight loss` == "No" ,0,1),
+             weakness = ifelse(weakness == "No" ,0,1),
+             Polyphagia = ifelse(Polyphagia == "No" ,0,1),
+             `Genital thrush` = ifelse(`Genital thrush` == "No" ,0,1),
+             `visual blurring` = ifelse(`visual blurring` == "No" ,0,1),
+             Itching = ifelse(Itching == "No" ,0,1),
+             Irritability = ifelse(Irritability == "No" ,0,1),
+             `delayed healing` = ifelse(`delayed healing` == "No" ,0,1),
+             `partial paresis` = ifelse(`partial paresis` == "No" ,0,1),
+             `muscle stiffness` = ifelse(`muscle stiffness` == "No" ,0,1),
+             Alopecia = ifelse(Alopecia == "No" ,0,1),
+             Obesity = ifelse(Obesity == "No" ,0,1),
+             class = ifelse(class == "Negative" ,0,1))
+```
+
+### Are there missing values?
+
+No.
+
+### Outliers
+
+```
+boxplot(diabetes_manipulated$Age, plot=TRUE)
+
+###Outliers above 80 deleted.
+
+diabetes_manipulated <- diabetes_manipulated[!diabetes_manipulated$Age>80,]
+```
+
+The rest of data is binary so will not be removing outliars.
+
+## Question 2 Split 70/30 for training
+
+```
+train_data <- diabetes_manipulated %>% mutate(ref=seq_len(nrow(diabetes_manipulated))) %>% sample_frac(0.7)
+test_data <- diabetes_manipulated[-train_data$ref,]
+```
+
+## Question 3 Build the tree
+
+```
+diabetes_tree <- rpart(class~.,
+                       data = diabetes_manipulated,
+                       method = "class")
+```
+
+```
+diabetes_tree
+rpart.plot(diabetes_tree)
+```
+
+### Question 4 Build ensemble method
+
+```
+model = glm(class~., family = "binomial", data = diabetes_manipulated)
+```
+
+```
+predict = predict(model, newdata = test_data, type = "response")
+```
+
+```
+table(test_data$class, predict >= 0.5)
+```
+
